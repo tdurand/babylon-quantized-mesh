@@ -9,18 +9,12 @@ function loadMesh (path) {
         })
 }
 
-function constructPositions(vertexData) {
+function constructPositions(vertexData, containerSize) {
     const elementsPerVertex = 3
     const vertexCount = vertexData.length / elementsPerVertex
     const positionAttributeArray = new Array(vertexData.length)
   
     const vertexMaxPosition = 32767
-  
-    var containerSize = {
-        x: 100,
-        y: 100, 
-        z: 50
-    }
   
     const xScale = containerSize.x / vertexMaxPosition
     const yScale = containerSize.y / vertexMaxPosition
@@ -37,6 +31,33 @@ function constructPositions(vertexData) {
     return positionAttributeArray
 }
 
+function constructUvs (verticesArray, containerSize) {
+  const elementsPerVertex = 3
+  const elementsPerUv = 2
+  const uvArray = new Array(
+    verticesArray.length / elementsPerVertex * elementsPerUv
+  )
+
+  for (let i = 0, uvIndex = 0; i < verticesArray.length; i++) {
+    switch (i % 3) {
+      // X
+      case 0: {
+        uvArray[uvIndex] = (verticesArray[i] + containerSize.x / 2) / containerSize.x
+        uvIndex++
+
+        break
+      }
+      // Y
+      case 1: {
+        uvArray[uvIndex] = (verticesArray[i] + containerSize.y / 2) / containerSize.y
+        uvIndex++
+      }
+    }
+  }
+
+  return uvArray;
+}
+
 function createQuantizedMesh (scene) {
   
     return loadMesh("5176.terrain")
@@ -48,11 +69,18 @@ function createQuantizedMesh (scene) {
         console.log(decodedMesh)
   
         if (decodedMesh.vertexData === undefined) {
-          return
+          return;
         }
 
         // Custom mesh
         var quantizedTileMesh = new BABYLON.Mesh("quantizedTile", scene);
+
+
+        var containerSize = {
+          x: 100,
+          y: 100, 
+          z: 50
+        }
         
         // Need to do some conversion to get from decodedMesh
         //var positions = decodedMesh.vertexData;
@@ -60,14 +88,25 @@ function createQuantizedMesh (scene) {
     
         var vertexData = new BABYLON.VertexData();
     
-        vertexData.positions = constructPositions(decodedMesh.vertexData)
-        vertexData.indices = Array.from(decodedMesh.triangleIndices);
-    
+        vertexData.positions = constructPositions(decodedMesh.vertexData, containerSize)
+        vertexData.uvs = constructUvs(vertexData.positions, containerSize)
+        vertexData.indices = Array.from(decodedMesh.triangleIndices).reverse();
+
+        //Empty array to contain calculated values or normals added
+        var normals = [];
+
+        //Calculations of normals added
+        BABYLON.VertexData.ComputeNormals(vertexData.positions, vertexData.indices, normals);
+        vertexData.normals = normals;
+
         vertexData.applyToMesh(quantizedTileMesh);
     
         /******Display custom mesh in wireframe view to show its creation****************/
         var mat = new BABYLON.StandardMaterial("mat", scene);
-        mat.wireframe = true;
+        // mat.emissiveTexture = new BABYLON.Texture("tile.jpeg", scene);
+        mat.diffuseTexture = new BABYLON.Texture("tile.jpeg", scene);
+        // mat.wireframe = true;
+        // mat.backFaceCulling = false;
         quantizedTileMesh.material = mat;
         /*******************************************************************************/
   
